@@ -1,3 +1,4 @@
 {
-  "outputDirectory": "pub"
+  "rootDirectory": "public",
+  "framework": null
 }
