@@ -1,5 +1,6 @@
 {
-  "buildCommand": "echo 'build-2026-06-30' && mkdir -p dist && cp -r public/* dist/",
-  "outputDirectory": "dist",
+  "installCommand": "bun install",
+  "buildCommand": "bun run build",
+  "outputDirectory": "public",
   "framework": null
 }
