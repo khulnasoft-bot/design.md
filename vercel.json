@@ -1,4 +1,3 @@
 {
-  "rootDirectory": "public",
-  "framework": null
+  "outputDirectory": "public"
 }
