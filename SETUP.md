@@ -62,9 +62,7 @@ bun run build
 bun run dev
 
 # Or start individual packages
-cd packages/playground && bun run dev
-cd packages/mcp-server && bun run dev
-cd packages/cli && bun run dev
+ls
 ```
 
 ### Available Commands
