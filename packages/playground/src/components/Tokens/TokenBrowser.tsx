@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { useDesignMdState } from '../../hooks/useDesignMdState';
 import { ColorGrid } from './ColorGrid';
 import { TypographyShowcase } from './TypographyShowcase';
+import { ComponentPreview } from './ComponentPreview';
 
 export function TokenBrowser() {
   const { designSystem } = useDesignMdState();
@@ -91,7 +92,7 @@ export function TokenBrowser() {
         {(category === 'all' || category === 'components') && (
           <div className="token-section">
             <h3>Components</h3>
-            <ComponentsGrid components={designSystem.components as Record<string, unknown>} search={search} />
+            <ComponentPreview components={designSystem.components as Record<string, unknown>} search={search} />
           </div>
         )}
       </div>
@@ -137,19 +138,4 @@ function RoundedGrid({ rounded, search }: { rounded?: Record<string, unknown>; s
   );
 }
 
-function ComponentsGrid({ components, search }: { components?: Record<string, unknown>; search: string }) {
-  if (!components) return null;
-  const filtered = Object.entries(components).filter(([name]) =>
-    name.toLowerCase().includes(search.toLowerCase())
-  );
-  return (
-    <div className="components-grid">
-      {filtered.map(([name, value]) => (
-        <div key={name} className="component-item">
-          <h4>{name}</h4>
-          <pre className="component-props">{JSON.stringify(value, null, 2)}</pre>
-        </div>
-      ))}
-    </div>
-  );
-}
+

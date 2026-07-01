@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Upload, AlertTriangle, Plus, Minus, Edit2 } from 'lucide-react';
+import { Upload, AlertTriangle } from 'lucide-react';
 import { callTool } from '../../api';
+import { ChangeHighlight } from './ChangeHighlight';
 
 interface DiffResult {
   tokens: {
@@ -159,54 +160,10 @@ function TokenChanges({
   return (
     <div className="token-changes">
       <h4>{title}</h4>
-      <div className="changes-grid">
-        {changes.added.length > 0 && (
-          <div className="change-category">
-            <div className="change-header">
-              <Plus size={16} />
-              <span>Added ({changes.added.length})</span>
-            </div>
-            <div className="change-list">
-              {changes.added.map((t) => (
-                <div key={t} className="change-item change-added">
-                  {t}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {changes.removed.length > 0 && (
-          <div className="change-category">
-            <div className="change-header">
-              <Minus size={16} />
-              <span>Removed ({changes.removed.length})</span>
-            </div>
-            <div className="change-list">
-              {changes.removed.map((t) => (
-                <div key={t} className="change-item change-removed">
-                  {t}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {changes.changed.length > 0 && (
-          <div className="change-category">
-            <div className="change-header">
-              <Edit2 size={16} />
-              <span>Changed ({changes.changed.length})</span>
-            </div>
-            <div className="change-list">
-              {changes.changed.map((t) => (
-                <div key={t} className="change-item change-modified">
-                  {t}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      <div className="changes-container">
+        <ChangeHighlight type="added" items={changes.added} title="Added" />
+        <ChangeHighlight type="removed" items={changes.removed} title="Removed" />
+        <ChangeHighlight type="changed" items={changes.changed} title="Changed" />
       </div>
     </div>
   );
