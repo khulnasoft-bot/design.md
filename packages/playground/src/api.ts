@@ -82,3 +82,36 @@ export async function generateVariants(
     variantOptions: variantOptions || { variantCount: 3, creativeRange: "EXPLORE" },
   });
 }
+
+// New MCP tools for DESIGN.md
+export async function lintDesignMd(path: string) {
+  return callTool<Record<string, unknown>>("lint_design_md", { path });
+}
+
+export async function exportDesignMd(path: string, format: "json-tailwind" | "css-tailwind" | "dtcg") {
+  return callTool<Record<string, unknown>>("export_design_md", { path, format });
+}
+
+export async function diffDesignMd(before: string, after: string) {
+  return callTool<Record<string, unknown>>("diff_design_md", { before, after });
+}
+
+export async function readDesignMd(path: string) {
+  return callTool<Record<string, unknown>>("read_design_md", { path });
+}
+
+export async function writeDesignMd(path: string, body: string, frontmatter?: Record<string, unknown>) {
+  return callTool<Record<string, unknown>>("write_design_md", { path, body, ...( frontmatter ? { frontmatter } : {}) });
+}
+
+export async function extractTokenReference(path: string, tokenPath: string) {
+  return callTool<Record<string, unknown>>("extract_token_reference", { path, tokenPath });
+}
+
+export async function validateComponentTokens(path: string, component: string) {
+  return callTool<Record<string, unknown>>("validate_component_tokens", { path, component });
+}
+
+export async function mergeDesignTokens(paths: string[], strategy?: "override" | "combine") {
+  return callTool<Record<string, unknown>>("merge_design_tokens", { paths, strategy });
+}

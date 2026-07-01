@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Palette, GitCompare, Download, Wrench, Plus, Save } from 'lucide-react';
+import { FileText, Palette, GitDiff, Download, Wrench, Plus, Download as DownloadIcon } from 'lucide-react';
 import { health, callTool } from './api';
 import { useDesignMdState } from './hooks/useDesignMdState';
 import { DesignMdEditor } from './components/Editor/DesignMdEditor';
@@ -15,6 +15,7 @@ type TabType = 'editor' | 'tokens' | 'diff' | 'export' | 'tools';
 export default function App() {
   const [connected, setConnected] = useState(false);
   const [filePath, setFilePath] = useState('');
+  const [autoLint, setAutoLint] = useState(true);
   const { selectedTab, setSelectedTab, content, fileName, setFileName, isDirty, setIsDirty, setFindings, setDesignSystem, summary } = useDesignMdState();
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function App() {
     try {
       const result = await callTool('read_design_md', { path: filePath });
       const data = result as Record<string, unknown>;
+      const md = data.raw as string;
       const lintResult = await callTool('lint_design_md', { path: filePath });
       const lintData = lintResult as Record<string, unknown>;
       
@@ -70,7 +72,7 @@ export default function App() {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     { id: 'editor', label: 'Editor', icon: <FileText size={18} /> },
     { id: 'tokens', label: 'Tokens', icon: <Palette size={18} /> },
-    { id: 'diff', label: 'Compare', icon: <GitCompare size={18} /> },
+    { id: 'diff', label: 'Compare', icon: <GitDiff size={18} /> },
     { id: 'export', label: 'Export', icon: <Download size={18} /> },
     { id: 'tools', label: 'Tools', icon: <Wrench size={18} /> },
   ];
@@ -180,7 +182,7 @@ function TopBar({
           <Plus size={14} /> Load
         </button>
         <button className="btn btn-primary btn-sm" onClick={onSave} disabled={!isDirty || !connected}>
-          <Save size={14} /> Save
+          <DownloadIcon size={14} /> Save
         </button>
       </div>
 
