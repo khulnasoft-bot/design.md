@@ -2,7 +2,7 @@
 
 import { lint } from "@google/design.md/linter";
 import type { LintReport } from "@google/design.md/linter";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
 
 const VERSION = "0.1.0";
@@ -78,6 +78,59 @@ const TOOLS: ToolDefinition[] = [
       required: ["path"],
     },
   },
+  {
+    name: "write_design_md",
+    description: "Write or update a DESIGN.md file with new content. Auto-lints after write.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Path to the DESIGN.md file" },
+        frontmatter: { type: "object", description: "YAML frontmatter object" },
+        body: { type: "string", description: "Markdown body content" },
+      },
+      required: ["path", "body"],
+    },
+  },
+  {
+    name: "extract_token_reference",
+    description: "Extract a specific token value from DESIGN.md by path (e.g., 'colors.primary').",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Path to the DESIGN.md file" },
+        tokenPath: { type: "string", description: "Dot-notation path to token (e.g., 'colors.primary', 'typography.heading')" },
+      },
+      required: ["path", "tokenPath"],
+    },
+  },
+  {
+    name: "validate_component_tokens",
+    description: "Validate component token properties and check for missing references.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Path to the DESIGN.md file" },
+        component: { type: "string", description: "Component name to validate" },
+      },
+      required: ["path", "component"],
+    },
+  },
+  {
+    name: "merge_design_tokens",
+    description: "Merge multiple DESIGN.md files into one, with conflict detection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        paths: { type: "array", items: { type: "string" }, description: "Paths to DESIGN.md files to merge" },
+        strategy: {
+          type: "string",
+          enum: ["override", "combine"],
+          description: "Merge strategy: override (last wins) or combine (merge arrays)",
+        },
+      },
+      required: ["paths"],
+    },
+  },
 ];
 
 function writeMessage(msg: JsonRpcMessage): void {
@@ -91,6 +144,34 @@ function writeError(id: unknown, code: number, message: string): void {
 
 function writeResult(id: number | string, result: unknown): void {
   writeMessage({ jsonrpc: "2.0", id, result });
+}
+
+function serializeFrontmatter(obj: Record<string, unknown>, indent = 0): string {
+  const lines: string[] = [];
+  const prefix = "  ".repeat(indent);
+  for (const [key, val] of Object.entries(obj)) {
+    if (val === null || val === undefined) continue;
+    if (typeof val === "object" && !Array.isArray(val)) {
+      lines.push(`${prefix}${key}:`);
+      lines.push(serializeFrontmatter(val as Record<string, unknown>, indent + 1));
+    } else if (typeof val === "string") {
+      lines.push(`${prefix}${key}: "${val}"`);
+    } else if (typeof val === "boolean") {
+      lines.push(`${prefix}${key}: ${val}`);
+    } else if (typeof val === "number") {
+      lines.push(`${prefix}${key}: ${val}`);
+    } else if (Array.isArray(val)) {
+      lines.push(`${prefix}${key}:`);
+      for (const item of val) {
+        if (typeof item === "string") {
+          lines.push(`${prefix}  - "${item}"`);
+        } else {
+          lines.push(`${prefix}  - ${item}`);
+        }
+      }
+    }
+  }
+  return lines.join("\n");
 }
 
 function parseFrontmatter(raw: string): { frontmatter: Record<string, unknown>; body: string } {
@@ -218,6 +299,88 @@ async function handleToolCall(id: number | string, name: string, args: Record<st
         const content = await readFile(path, "utf-8");
         const { frontmatter, body } = parseFrontmatter(content);
         writeResult(id, { raw: content, frontmatter, body });
+        break;
+      }
+
+      case "write_design_md": {
+        const { path, frontmatter, body } = args as { path: string; frontmatter?: Record<string, unknown>; body: string };
+        const yaml = frontmatter ? serializeFrontmatter(frontmatter) : "";
+        const content = yaml ? `---\n${yaml}---\n${body}` : body;
+        await writeFile(path, content, "utf-8");
+        const report = lint(content);
+        writeResult(id, {
+          success: true,
+          path,
+          findings: report.findings,
+          summary: report.summary,
+        });
+        break;
+      }
+
+      case "extract_token_reference": {
+        const { path, tokenPath } = args as { path: string; tokenPath: string };
+        const content = await readFile(path, "utf-8");
+        const report = lint(content);
+        const keys = tokenPath.split(".");
+        let value: unknown = report.designSystem;
+        for (const key of keys) {
+          if (typeof value === "object" && value !== null && key in value) {
+            value = (value as Record<string, unknown>)[key];
+          } else {
+            throw new Error(`Token path "${tokenPath}" not found`);
+          }
+        }
+        writeResult(id, { tokenPath, value, resolved: JSON.stringify(value) });
+        break;
+      }
+
+      case "validate_component_tokens": {
+        const { path, component } = args as { path: string; component: string };
+        const content = await readFile(path, "utf-8");
+        const report = lint(content);
+        const componentToken = (report.designSystem.components as Map<string, unknown>).get(component);
+        if (!componentToken) {
+          throw new Error(`Component "${component}" not found`);
+        }
+        const props = componentToken as Record<string, unknown>;
+        const missing: string[] = [];
+        for (const [key, val] of Object.entries(props)) {
+          const ref = String(val);
+          if (ref.includes("{") || ref.includes("$")) {
+            const refPath = ref.replace(/[{}$]/g, "");
+            let refValue: unknown = report.designSystem;
+            for (const part of refPath.split(".")) {
+              if (typeof refValue === "object" && refValue !== null && part in refValue) {
+                refValue = (refValue as Record<string, unknown>)[part];
+              } else {
+                missing.push(`${key}: ${refPath}`);
+                break;
+              }
+            }
+          }
+        }
+        writeResult(id, { component, properties: props, missingReferences: missing, valid: missing.length === 0 });
+        break;
+      }
+
+      case "merge_design_tokens": {
+        const { paths, strategy } = args as { paths: string[]; strategy?: "override" | "combine" };
+        const mergeStrategy = strategy || "override";
+        const reports = [];
+        let merged = { colors: new Map(), typography: new Map(), rounded: new Map(), spacing: new Map(), components: new Map() };
+        for (const p of paths) {
+          const content = await readFile(p, "utf-8");
+          const report = lint(content);
+          reports.push({ path: p, summary: report.summary });
+          if (mergeStrategy === "override") {
+            merged.colors = new Map([...merged.colors, ...report.designSystem.colors]);
+            merged.typography = new Map([...merged.typography, ...report.designSystem.typography]);
+            merged.rounded = new Map([...merged.rounded, ...report.designSystem.rounded]);
+            merged.spacing = new Map([...merged.spacing, ...report.designSystem.spacing]);
+            merged.components = new Map([...merged.components, ...report.designSystem.components]);
+          }
+        }
+        writeResult(id, { merged: Object.fromEntries(Object.entries(merged).map(([k, v]) => [k, Object.fromEntries(v)])), reports });
         break;
       }
 
